@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import PokerGame from "./heads-up";
-// import RouletteGame from "./roulette"; // Uncomment when you have the Roulette page ready
+import RouletteGame from "./roulette";
 
 const AnotherGame = () => <div>Another game coming soon!</div>;
 
@@ -28,19 +28,19 @@ export default function Home() {
     );
   }
 
-  // if (selectedGame === "roulette") {
-  //   return (
-  //     <div className="min-h-screen bg-green-900 text-white p-8 flex flex-col">
-  //       <button
-  //         onClick={handleReturnHome}
-  //         className="self-start mb-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded"
-  //       >
-  //         ⬅️ Return Home
-  //       </button>
-  //       <RouletteGame />
-  //     </div>
-  //   );
-  // }
+  if (selectedGame === "roulette") {
+    return (
+      <div className="min-h-screen bg-green-900 text-white p-8 flex flex-col">
+        <button
+          onClick={handleReturnHome}
+          className="self-start mb-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded"
+        >
+          ⬅️ Return Home
+        </button>
+        <RouletteGame />
+      </div>
+    );
+  }
 
   if (selectedGame === "anotherGame") {
     return (
@@ -66,7 +66,22 @@ export default function Home() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <h1 className="text-4xl font-bold mb-10">Brendant&apos;s Card Room</h1>
+      <h1 
+  className="text-5xl font-extrabold mb-12 text-white drop-shadow-lg tracking-wide animate-pulse text-center"
+  style={{
+    textShadow: `
+      2px 2px 0 #000, 
+      -2px 2px 0 #000, 
+      2px -2px 0 #000, 
+      -2px -2px 0 #000,
+      0 0 8px #ffffff,
+      0 0 16px #00ffcc
+    `,
+    letterSpacing: "0.2em",
+  }}
+>
+  🎰 BRENDAN&apos;S CARD ROOM 🎰
+</h1>
   
       {/* Layout Row */}
       <div className="flex items-center justify-center gap-12">
