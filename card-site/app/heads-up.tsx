@@ -1,17 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
-// Deck setup
+type Card = {
+  rank: string;
+  suit: string;
+};
+
+type HandResult = {
+  name: string;
+  rank: number;
+  tiebreaker: number[];
+};
+
 const suits = ["♠️", "♥️", "♣️", "♦️"];
-const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const botNames = [
+const ranks = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+const defaultBotNames = [
   "AceBot", "LuckyBot", "SharkBot", "QueenBot", "BluffBot",
-  "DealerBot", "RiverKing", "FlopMaster", "TheGrinder", "HighRoller" , "Tanner (super-bad)"
+  "DealerBot", "TiltBot", "RaiseBot", "StackBot", "CallBot"
 ];
 
-function getDeck() {
-  const deck = [];
+const rankValues: Record<string, number> = {
+  "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8,
+  "9": 9, "10": 10, "J": 11, "Q": 12, "K": 13, "A": 14,
+};
+
+function getDeck(): Card[] {
+  const deck: Card[] = [];
   for (const suit of suits) {
     for (const rank of ranks) {
       deck.push({ rank, suit });
@@ -20,7 +35,7 @@ function getDeck() {
   return deck;
 }
 
-function shuffle(deck: { rank: string; suit: string }[]) {
+function shuffle(deck: Card[]): Card[] {
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -29,30 +44,135 @@ function shuffle(deck: { rank: string; suit: string }[]) {
   return shuffled;
 }
 
-export default function Home() {
-  const [deck, setDeck] = useState<{ rank: string; suit: string }[]>([]);
-  const [playerHand, setPlayerHand] = useState<{ rank: string; suit: string }[]>([]);
-  const [computerHands, setComputerHands] = useState<{ name: string; hand: { rank: string; suit: string }[]; winner: boolean }[]>([]);
-  const [communityCards, setCommunityCards] = useState<{ rank: string; suit: string }[]>([]);
+function getCombinations<T>(array: T[], size: number): T[][] {
+  if (size > array.length) return [];
+  if (size === 1) return array.map(item => [item]);
+  const combinations: T[][] = [];
+  array.forEach((current, index) => {
+    const smaller = getCombinations(array.slice(index + 1), size - 1);
+    smaller.forEach(combo => combinations.push([current, ...combo]));
+  });
+  return combinations;
+}
+
+function findStraight(vals: number[]): number | null {
+  const sorted = [...new Set(vals)].sort((a, b) => b - a);
+  if (sorted.includes(14)) sorted.push(1);
+  for (let i = 0; i <= sorted.length - 5; i++) {
+    const slice = sorted.slice(i, i + 5);
+    if (slice[0] - slice[4] === 4) return slice[0];
+  }
+  return null;
+}
+
+function evaluateHand(cards: Card[]): HandResult {
+  const values = cards.map(c => rankValues[c.rank]);
+  const suits = cards.map(c => c.suit);
+  const valueCounts: Record<number, number> = {};
+  const suitCounts: Record<string, number> = {};
+
+  values.forEach(v => valueCounts[v] = (valueCounts[v] || 0) + 1);
+  suits.forEach(s => suitCounts[s] = (suitCounts[s] || 0) + 1);
+
+  const uniqueValues = [...new Set(values)].sort((a, b) => b - a);
+
+  const flushSuit = Object.keys(suitCounts).find(s => suitCounts[s] >= 5);
+  if (flushSuit) {
+    const flushCards = cards.filter(c => c.suit === flushSuit);
+    const flushValues = flushCards.map(c => rankValues[c.rank]).sort((a, b) => b - a);
+    const straightFlushHigh = findStraight(flushValues);
+    if (straightFlushHigh) {
+      return { name: straightFlushHigh === 14 ? "Royal Flush" : "Straight Flush", rank: 9, tiebreaker: [straightFlushHigh] };
+    }
+    return { name: "Flush", rank: 6, tiebreaker: flushValues.slice(0, 5) };
+  }
+
+  const four = Object.entries(valueCounts).find(([, count]) => count === 4);
+  if (four) {
+    const quad = Number(four[0]);
+    const kicker = Math.max(...values.filter(v => v !== quad));
+    return { name: "Four of a Kind", rank: 8, tiebreaker: [quad, kicker] };
+  }
+
+  const threes = Object.entries(valueCounts).filter(([, count]) => count === 3).map(([v]) => Number(v)).sort((a, b) => b - a);
+  const pairs = Object.entries(valueCounts).filter(([, count]) => count === 2).map(([v]) => Number(v)).sort((a, b) => b - a);
+
+  if (threes.length && (pairs.length || threes.length > 1)) {
+    const bestPair = pairs.length ? pairs[0] : threes[1];
+    return { name: "Full House", rank: 7, tiebreaker: [threes[0], bestPair] };
+  }
+
+  const straightHigh = findStraight(uniqueValues);
+  if (straightHigh) return { name: "Straight", rank: 5, tiebreaker: [straightHigh] };
+
+  if (threes.length) {
+    const kickers = uniqueValues.filter(v => v !== threes[0]).slice(0, 2);
+    return { name: "Three of a Kind", rank: 4, tiebreaker: [threes[0], ...kickers] };
+  }
+
+  if (pairs.length >= 2) {
+    const kicker = uniqueValues.find(v => !pairs.includes(v))!;
+    return { name: "Two Pair", rank: 3, tiebreaker: [pairs[0], pairs[1], kicker] };
+  }
+
+  if (pairs.length === 1) {
+    const kickers = uniqueValues.filter(v => v !== pairs[0]).slice(0, 3);
+    return { name: "One Pair", rank: 2, tiebreaker: [pairs[0], ...kickers] };
+  }
+
+  return { name: "High Card", rank: 1, tiebreaker: uniqueValues.slice(0, 5) };
+}
+
+function getBestHand(cards: Card[]): HandResult {
+  const combos = getCombinations(cards, 5);
+  return combos.reduce((best, combo) => compareHands(evaluateHand(combo), best) < 0 ? evaluateHand(combo) : best, evaluateHand(combos[0]));
+}
+
+function compareHands(a: HandResult, b: HandResult): number {
+  if (a.rank !== b.rank) return b.rank - a.rank;
+  for (let i = 0; i < Math.max(a.tiebreaker.length, b.tiebreaker.length); i++) {
+    const aVal = a.tiebreaker[i] ?? 0;
+    const bVal = b.tiebreaker[i] ?? 0;
+    if (aVal !== bVal) return bVal - aVal;
+  }
+  return 0;
+}
+
+export default function PokerGame() {
+  const [deck, setDeck] = useState<Card[]>([]);
+  const [playerHand, setPlayerHand] = useState<Card[]>([]);
+  const [computerHands, setComputerHands] = useState<{ name: string; hand: Card[]; winner: boolean; result?: HandResult }[]>([]);
+  const [communityCards, setCommunityCards] = useState<Card[]>([]);
   const [gameMessage, setGameMessage] = useState("");
   const [step, setStep] = useState(0);
-  const [numPlayers, setNumPlayers] = useState(1);
+  const [numPlayers, setNumPlayers] = useState(2);
   const [playerWinner, setPlayerWinner] = useState(false);
+  const [playerResult, setPlayerResult] = useState<HandResult | null>(null);
+  const [customBotNames, setCustomBotNames] = useState("");
 
-  function startGame() {
+  const startGame = useCallback(() => {
+    setStep(0);
     const newDeck = shuffle(getDeck());
     const player = [newDeck.pop()!, newDeck.pop()!];
+  
+    // Split user input into names
+    const userNames = customBotNames
+      .split(",")
+      .map(name => name.trim())
+      .filter(name => name.length > 0);
+  
+    // Combine user names + default bot names if not enough
+    const fullBotNames = [...userNames, ...defaultBotNames].slice(0, numPlayers);
+  
     const computers = [];
-
     for (let i = 0; i < numPlayers; i++) {
-      const botName = botNames[Math.floor(Math.random() * botNames.length)];
       computers.push({
-        name: botName,
+        name: fullBotNames[i],  // Always enough names now
         hand: [newDeck.pop()!, newDeck.pop()!],
         winner: false,
       });
     }
-
+  
     setDeck(newDeck);
     setPlayerHand(player);
     setComputerHands(computers);
@@ -60,182 +180,186 @@ export default function Home() {
     setGameMessage("");
     setStep(1);
     setPlayerWinner(false);
-  }
+    setPlayerResult(null);
+  }, [numPlayers, customBotNames]);
 
-  function nextStep() {
+  const dealNext = () => {
     const newDeck = [...deck];
+    if (step === 1) setCommunityCards([newDeck.pop()!, newDeck.pop()!, newDeck.pop()!]);
+    else if (step === 2) setCommunityCards(prev => [...prev, newDeck.pop()!]);
+    else if (step === 3) setCommunityCards(prev => [...prev, newDeck.pop()!]);
+    setDeck(newDeck);
+    setStep(prev => prev + 1);
+  };
 
-    if (step === 1) {
-      const flop = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
-      setCommunityCards(flop);
-      setDeck(newDeck);
-      setStep(2);
-    } else if (step === 2) {
-      const turn = newDeck.pop()!;
-      setCommunityCards((prev) => [...prev, turn]);
-      setDeck(newDeck);
-      setStep(3);
-    } else if (step === 3) {
-      const river = newDeck.pop()!;
-      setCommunityCards((prev) => [...prev, river]);
-      setDeck(newDeck);
-      setStep(4);
-    } else if (step === 4) {
-      decideWinner();
-      setStep(5);
-    }
-  }
-  function decideWinner() {
-    const playerTotal = handValue([...playerHand, ...communityCards]);
-    const computerTotals = computerHands.map(comp => handValue([...comp.hand, ...communityCards]));
-    const allTotals = [playerTotal, ...computerTotals];
-    const highestTotal = Math.max(...allTotals);
+  const determineWinner = useCallback(() => {
+    const playerBest = getBestHand([...playerHand, ...communityCards]);
+    setPlayerResult(playerBest);
   
-    const updatedComputers = computerHands.map((comp, idx) => ({
-      ...comp,
-      winner: computerTotals[idx] === highestTotal,
+    const computerResults = computerHands.map(bot => ({
+      ...bot,
+      result: getBestHand([...bot.hand, ...communityCards]),
     }));
   
-    setComputerHands(updatedComputers);
-    setPlayerWinner(playerTotal === highestTotal && allTotals.filter(t => t === highestTotal).length === 1);
+    const allHands = [
+      { name: "You", result: playerBest, isPlayer: true },
+      ...computerResults.map(c => ({ name: c.name, result: c.result!, isPlayer: false }))
+    ];
   
-    if (playerTotal === highestTotal && allTotals.filter(t => t === highestTotal).length === 1) {
-      setGameMessage("You Win! 🏆");
-    } else if (playerTotal === highestTotal) {
-      setGameMessage("It's a Tie! 🤝");
-    } else {
-      // Find which bot(s) won
-      const winningBots = updatedComputers
-        .filter(bot => bot.winner)
-        .map(bot => bot.name)
-        .join(", ");
-  
-      setGameMessage(`${winningBots} Wins! 🤖🏆`);
+    let bestHands = [allHands[0]];
+    for (const hand of allHands.slice(1)) {
+      const comp = compareHands(hand.result, bestHands[0].result);
+      if (comp < 0) bestHands = [hand];
+      else if (comp === 0) bestHands.push(hand);
     }
-  }
-  function handValue(hand: { rank: string; suit: string }[]) {
-    const rankValues: Record<string, number> = {
-      A: 14, K: 13, Q: 12, J: 11, "10": 10, "9": 9, "8": 8,
-      "7": 7, "6": 6, "5": 5, "4": 4, "3": 3, "2": 2,
-    };
-    return hand.reduce((sum, card) => sum + (rankValues[card.rank] || 0), 0);
-  }
+  
+    setComputerHands(computerResults.map(c => ({
+      ...c, winner: bestHands.some(w => w.name === c.name)
+    })));
+    setPlayerWinner(bestHands.some(w => w.isPlayer));
+  
+    if (bestHands.length === 1) {
+      setGameMessage(bestHands[0].isPlayer
+        ? `🏆 You win with ${bestHands[0].result.name}!`
+        : `🤖 ${bestHands[0].name} wins with ${bestHands[0].result.name}!`);
+    } else {
+      const names = bestHands.map(w => (w.isPlayer ? "You" : w.name)).join(", ");
+      setGameMessage(`🤝 Tie between ${names} with ${bestHands[0].result.name}!`);
+    }
+  }, [playerHand, communityCards, computerHands]);
+  
+  useEffect(() => {
+    if (step === 4 && communityCards.length === 5) {
+      determineWinner(); 
+    }
+  }, [step, communityCards, determineWinner, computerHands]);
+  
 
-  function resetGame() {
-    setDeck([]);
-    setPlayerHand([]);
-    setComputerHands([]);
-    setCommunityCards([]);
-    setGameMessage("");
-    setStep(0);
-    setPlayerWinner(false);
+  function CardDisplay({ card }: { card: Card }) {
+    return (
+      <div className={`w-16 h-24 rounded-lg flex flex-col items-center justify-center ${card.suit === "♥️" || card.suit === "♦️" ? "text-red-600" : "text-black"} bg-white shadow-md`}>
+        <div className="text-xl font-bold">{card.rank}</div>
+        <div className="text-2xl">{card.suit}</div>
+      </div>
+    );
   }
 
   return (
-    
-    <main className="flex flex-col items-center justify-center min-h-screen bg-green-900 text-white p-8">
-      <h1 className="text-4xl font-bold mb-8">♠️ Poker Game ♣️</h1>
+    <div className="min-h-screen bg-green-900 text-white p-8">
+  <h1 className="text-4xl font-bold text-center mb-8">♠️ Texas Hold&apos;em ♣️</h1>
 
-            <button
-        onClick={() => window.location.reload()}
-        className="absolute top-4 left-4 bg-yellow-400 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded-lg shadow-md transition"
-        >
-        ⬅️ Main Menu
-        </button>
+  {step === 0 ? (
+    <div className="max-w-md mx-auto bg-green-800 p-6 rounded-xl flex flex-col gap-4">
+      <h2 className="text-2xl font-bold mb-2 text-center">Setup Game</h2>
 
-      {step === 0 && (
-        <div className="flex flex-col items-center mb-8">
-          <label className="text-lg mb-4">🧑‍💻 How many bots to play against? (1-8)</label>
-          <input
-            type="number"
-            min="1"
-            max="8"
-            value={numPlayers}
-            onChange={(e) => setNumPlayers(parseInt(e.target.value))}
-            className="text-black px-4 py-2 rounded-lg mb-6 w-24 text-center border-2 border-white bg-white"
-          />
+      {/* Number of Bots */}
+      <div className="flex flex-wrap justify-center gap-2">
+        {[0, 1, 2, 3, 4, 5, 6, 7].map(num => (
           <button
-            onClick={startGame}
-            className="bg-blue-600 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors"
+            key={num}
+            onClick={() => setNumPlayers(num)}
+            className={`px-4 py-2 rounded ${
+              numPlayers === num ? "bg-yellow-500 text-black" : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            Start Game
+            {num} Bots
           </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {playerHand.length > 0 && (
-        <div className="flex flex-col items-center mb-8">
-          <h2 className="text-2xl mb-2">
-            You 🧑‍💻 {playerWinner && <span className="text-yellow-400">(Winner 🏆)</span>}
-          </h2>
-          <div className="flex space-x-4">
-            {playerHand.map((card, idx) => (
-              <div key={idx} className="bg-white text-black w-20 h-28 rounded-lg shadow-lg flex flex-col items-center justify-center text-2xl">
-                <div>{card.rank}</div>
-                <div>{card.suit}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Custom Bot Names */}
+      <div>
+        <label className="block text-lg mt-4 mb-1">Custom Bot Names (comma-separated):</label>
+        <input
+          type="text"
+          value={customBotNames}
+          onChange={(e) => setCustomBotNames(e.target.value)}
+          placeholder="e.g. Name1, Name2, Name3"
+          className="w-full p-2 rounded text-black border border-black-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+      </div>
 
-      {computerHands.length > 0 && (
-        <div className={`grid ${computerHands.length <= 4 ? "grid-cols-2" : "grid-cols-3"} gap-6 mb-8`}>
-          {computerHands.map((comp, idx) => (
-            <div key={idx} className="flex flex-col items-center">
-              <h2 className="text-xl mb-2">
-                {comp.name} 🤖 {comp.winner && <span className="text-yellow-400">(Winner 🏆)</span>}
-              </h2>
-              <div className="flex space-x-2">
-                {comp.hand.map((card, cardIdx) => (
-                  <div key={cardIdx} className="bg-white text-black w-16 h-24 rounded-lg shadow-md flex flex-col items-center justify-center text-lg">
-                    <div>{card.rank}</div>
-                    <div>{card.suit}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Start Game Button */}
+      <button
+        onClick={startGame}
+        className="w-full mt-4 bg-blue-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+      >
+        Start Game
+      </button>
+    </div>
+  ) : (
+    <>
+      {/* Player Hand */}
+      <div className={`mb-8 p-4 rounded-xl ${playerWinner ? "bg-yellow-800" : "bg-gray-800"}`}>
+        <h2 className="text-2xl mb-4">Your Hand {playerWinner && "🏆"}</h2>
+        {playerResult && (
+          <p className="text-center text-gray-300 italic mb-2">Hand: {playerResult.name}</p>
+        )}
+        <div className="flex gap-4 justify-center">
+          {playerHand.map((card, i) => (
+            <CardDisplay key={i} card={card} />
           ))}
         </div>
-      )}
+      </div>
 
-      {communityCards.length > 0 && (
-        <div className="flex flex-col items-center mb-8">
-          <h2 className="text-2xl mb-4">Community Cards 🃏</h2>
-          <div className="flex space-x-4">
-            {communityCards.map((card, idx) => (
-              <div key={idx} className="bg-white text-black w-20 h-28 rounded-lg shadow-lg flex flex-col items-center justify-center text-2xl">
-                <div>{card.rank}</div>
-                <div>{card.suit}</div>
-              </div>
-            ))}
+      {/* Community Cards */}
+      <div className="mb-8 p-4 bg-gray-800 rounded-xl">
+        <h2 className="text-2xl mb-4">Community Cards</h2>
+        <div className="flex gap-4 justify-center">
+          {communityCards.map((card, i) => (
+            <CardDisplay key={i} card={card} />
+          ))}
+        </div>
+      </div>
+
+      {/* Computer Players */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        {computerHands.map((bot, i) => (
+          <div key={i} className={`p-4 rounded-xl ${bot.winner ? "bg-yellow-800" : "bg-gray-800"}`}>
+            <h2 className="text-xl mb-2">
+              {bot.name} {bot.winner && "🏆"}
+            </h2>
+            {bot.result && (
+              <p className="text-center text-gray-300 italic mb-2">{bot.result.name}</p>
+            )}
+            <div className="flex gap-2 justify-center">
+              {bot.hand.map((card, j) => (
+                <CardDisplay key={j} card={card} />
+              ))}
+            </div>
           </div>
+        ))}
+      </div>
+
+      {/* Deal / New Game Buttons */}
+      <div className="flex flex-col items-center gap-4 mb-8">
+        {step < 4 && (
+          <button
+            onClick={dealNext}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded"
+          >
+            {["Deal Flop", "Deal Turn", "Deal River"][step - 1]}
+          </button>
+        )}
+
+        {step >= 4 && (
+          <button
+            onClick={startGame}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded"
+          >
+            🔁 New Game
+          </button>
+        )}
+      </div>
+
+      {/* Winner Message */}
+      {gameMessage && (
+        <div className="text-center p-4 bg-blue-800 rounded-xl mt-4">
+          <h2 className="text-2xl font-bold">{gameMessage}</h2>
         </div>
       )}
-
-      {step >= 1 && step <= 4 && (
-        <button
-          onClick={nextStep}
-          className="bg-blue-600 hover:bg-blue-800 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors mb-6"
-        >
-          {step === 1 && "Deal Flop"}
-          {step === 2 && "Deal Turn"}
-          {step === 3 && "Deal River"}
-          {step === 4 && "Show Winner"}
-        </button>
-      )}
-
-      {gameMessage && (
-        <>
-          <h2 className="text-2xl font-bold mb-4">{gameMessage}</h2>
-          <button
-            onClick={resetGame}
-            className="bg-red-500 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors"
-          >
-            Play Again 🔁
-          </button>
-        </>
-      )}
-    </main>
+    </>
+  )}
+</div>
   );
 }

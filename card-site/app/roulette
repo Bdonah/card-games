@@ -1,0 +1,74 @@
+"use client";
+
+import { useState } from "react";
+
+const numbers = Array.from({ length: 37 }, (_, i) => i); // 0 to 36
+const redNumbers = new Set([
+  1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
+]);
+const blackNumbers = new Set([
+  2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35
+]);
+
+export default function Roulette() {
+  const [bet, setBet] = useState("");
+  const [result, setResult] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
+
+  function spinWheel() {
+    const landed = Math.floor(Math.random() * 37);
+    setResult(landed);
+
+    if (bet === "red" && redNumbers.has(landed)) {
+      setMessage(`It landed on ${landed} 🔴. You WIN! 🎉`);
+    } else if (bet === "black" && blackNumbers.has(landed)) {
+      setMessage(`It landed on ${landed} ⚫. You WIN! 🎉`);
+    } else if (bet === "even" && landed !== 0 && landed % 2 === 0) {
+      setMessage(`It landed on ${landed} (even). You WIN! 🎉`);
+    } else if (bet === "odd" && landed % 2 === 1) {
+      setMessage(`It landed on ${landed} (odd). You WIN! 🎉`);
+    } else if (bet === landed.toString()) {
+      setMessage(`It landed exactly on ${landed}! Huge WIN! 🤑`);
+    } else {
+      setMessage(`It landed on ${landed}. You lose. 😢`);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-green-900 text-white flex flex-col items-center justify-center p-8">
+      <h1 className="text-4xl font-bold mb-8">🎡 Roulette 🎡</h1>
+
+      <div className="flex gap-4 mb-6">
+        <button onClick={() => setBet("red")} className="bg-red-600 hover:bg-red-700 py-2 px-4 rounded font-bold">Bet Red</button>
+        <button onClick={() => setBet("black")} className="bg-black text-white hover:bg-gray-700 py-2 px-4 rounded font-bold">Bet Black</button>
+        <button onClick={() => setBet("even")} className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded font-bold">Bet Even</button>
+        <button onClick={() => setBet("odd")} className="bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded font-bold">Bet Odd</button>
+      </div>
+
+      <div className="flex gap-4 mb-6">
+        <input
+          type="number"
+          min="0"
+          max="36"
+          value={bet}
+          onChange={(e) => setBet(e.target.value)}
+          className="text-black p-2 rounded"
+          placeholder="Or bet a number (0-36)"
+        />
+      </div>
+
+      <button
+        onClick={spinWheel}
+        className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-4 px-8 rounded text-xl mb-6"
+      >
+        Spin!
+      </button>
+
+      {result !== null && (
+        <div className="text-2xl font-bold mt-4">
+          {message}
+        </div>
+      )}
+    </div>
+  );
+}
