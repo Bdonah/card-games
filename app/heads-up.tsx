@@ -285,7 +285,7 @@ export default function PokerGame() {
 
     {/* Custom Bot Names */}
     <div className="w-full">
-      <label className="block text-lg mt-4 mb-1 text-center">Custom Bot Names:</label>
+      <label className="block text-lg mt-4 mb-1 text-center">Custom Bot Names (Not needed):</label>
       <input
         type="text"
         value={customBotNames}
