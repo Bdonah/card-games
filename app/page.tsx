@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import PokerGame from "./heads-up";
 import RouletteGame from "./roulette";
+import BlackjackGame from "./blackjack"; 
 
 const AnotherGame = () => <div>Another game coming soon!</div>;
 
@@ -38,6 +39,19 @@ export default function Home() {
           ⬅️ Return Home
         </button>
         <RouletteGame />
+      </div>
+    );
+  }
+  if (selectedGame === "blackjack") {
+    return (
+      <div className="min-h-screen bg-green-900 text-white p-8 flex flex-col">
+        <button
+          onClick={handleReturnHome}
+          className="self-start mb-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded"
+        >
+          ⬅️ Return Home
+        </button>
+        <BlackjackGame />
       </div>
     );
   }
@@ -100,13 +114,19 @@ export default function Home() {
             onClick={() => setSelectedGame("poker")}
             className="px-6 py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 shadow-md text-xl"
           >
-            ♠️ Play Poker
+            ♠️ Play Poker (Head&apos;s up)
           </button>
           <button
             onClick={() => setSelectedGame("roulette")}
             className="px-6 py-4 bg-red-500 text-white rounded-lg hover:bg-red-600 shadow-md text-xl"
           >
             🎡 Play Roulette
+          </button>
+          <button
+              onClick={() => setSelectedGame("blackjack")}
+              className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 shadow-md text-xl"
+            >
+              🃏 Play Blackjack
           </button>
           <button
             onClick={() => setSelectedGame("anotherGame")}

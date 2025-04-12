@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 
 type Card = {
   rank: string;
@@ -246,49 +247,65 @@ export default function PokerGame() {
 
   return (
     <div className="min-h-screen bg-green-900 text-white p-8">
-  <h1 className="text-4xl font-bold text-center mb-8">♠️ Texas Hold&apos;em ♣️</h1>
+  <h1 className="text-4xl font-bold text-center mb-8">♠️ Texas Hold&apos;em (Head&apos;s up)♣️</h1>
 
   {step === 0 ? (
-    <div className="max-w-md mx-auto bg-green-800 p-6 rounded-xl flex flex-col gap-4">
-      <h2 className="text-2xl font-bold mb-2 text-center">Setup Game</h2>
+  <div className="relative min-h-screen flex items-center justify-center bg-green-900 text-white p-8">
 
-      {/* Number of Bots */}
-      <div className="flex flex-wrap justify-center gap-2">
-        {[0, 1, 2, 3, 4, 5, 6, 7].map(num => (
-          <button
-            key={num}
-            onClick={() => setNumPlayers(num)}
-            className={`px-4 py-2 rounded ${
-              numPlayers === num ? "bg-yellow-500 text-black" : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            {num} Bots
-          </button>
-        ))}
-      </div>
+  {/* Poker Image absolutely positioned on the left */}
+  <div className="absolute left-8 top-1/2 transform -translate-y-1/2 hidden md:block">
+    <Image
+      src="/poker.webp"
+      alt="Poker"
+      width={400}
+      height={400}
+      unoptimized
+      className="rounded-lg object-cover"
+    />
+  </div>
 
-      {/* Custom Bot Names */}
-      <div>
-        <label className="block text-lg mt-4 mb-1">Custom Bot Names (comma-separated):</label>
-        <input
-          type="text"
-          value={customBotNames}
-          onChange={(e) => setCustomBotNames(e.target.value)}
-          placeholder="e.g. Name1, Name2, Name3"
-          className="w-full p-2 rounded text-black border border-black-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-      </div>
+  {/* Setup Game perfectly centered */}
+  <div className="max-w-md w-full bg-green-800 p-8 rounded-xl flex flex-col gap-6 items-center">
+    <h2 className="text-3xl font-bold text-center">Setup Game</h2>
 
-      {/* Start Game Button */}
-      <button
-        onClick={startGame}
-        className="w-full mt-4 bg-blue-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-      >
-        Start Game
-      </button>
+    {/* Number of Bots */}
+    <div className="flex flex-wrap justify-center gap-2">
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((num) => (
+        <button
+          key={num}
+          onClick={() => setNumPlayers(num)}
+          className={`px-4 py-2 rounded ${
+            numPlayers === num ? "bg-yellow-500 text-black" : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {num} Bots
+        </button>
+      ))}
     </div>
-  ) : (
-    <>
+
+    {/* Custom Bot Names */}
+    <div className="w-full">
+      <label className="block text-lg mt-4 mb-1 text-center">Custom Bot Names:</label>
+      <input
+        type="text"
+        value={customBotNames}
+        onChange={(e) => setCustomBotNames(e.target.value)}
+        placeholder="e.g. Bot1, Bot2"
+        className="w-full p-2 rounded text-black"
+      />
+    </div>
+
+    {/* Start Game Button */}
+    <button
+      onClick={startGame}
+      className="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+    >
+      Start Game
+    </button>
+  </div>
+</div>
+) : (
+  <>
       {/* Player Hand */}
       <div className={`mb-8 p-4 rounded-xl ${playerWinner ? "bg-yellow-800" : "bg-gray-800"}`}>
         <h2 className="text-2xl mb-4">Your Hand {playerWinner && "🏆"}</h2>
