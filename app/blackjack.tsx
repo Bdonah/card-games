@@ -279,7 +279,7 @@ export default function Blackjack() {
   <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
     <div className="bg-white text-black p-8 rounded-lg flex flex-col gap-6 items-center">
       <h2 className="text-2xl font-bold">You&apos;re out of money! 💸</h2>
-      <p className="text-lg">Would you like to restart with $500?</p>
+      <p className="text-lg">Would you like to restart?</p>
       <button
         onClick={() => {
           setMoney(STARTING_MONEY);
