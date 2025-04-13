@@ -143,10 +143,10 @@ export default function Home() {
         {/* Help Button (Top Right Corner) */}
         <button
           onClick={togglePopup}
-          className="fixed top-4 right-4 bg-yellow-400 text-black rounded-full p-2 w-10 h-10 flex items-center justify-center shadow-lg hover:bg-yellow-500 z-50"
-        >
-          ?
-        </button>
+          className="fixed top-4 right-4 bg-yellow-400 text-black rounded-full px-4 py-2 flex items-center justify-center shadow-lg hover:bg-yellow-500 z-50 text-sm font-bold rounded-lg"
+          >
+            Learn how to play
+          </button>
 
         {/* Layout Row */}
         <div className="flex items-center justify-center gap-12">
