@@ -9,6 +9,7 @@ import Slots from "./slots";
 import VideoPoker from "./videopoker";
 import HelpPopup from "@/components/HelpPopup"; 
 import Craps from "./craps"; 
+import Layout from "@/components/Layout"; // Import it!
 
 const AnotherGame = () => <div>Another game coming soon!</div>;
 
@@ -107,7 +108,9 @@ export default function Home() {
   }
 
   return (
+    
     <>
+    <Layout>
       {/* Help Popup */}
       <HelpPopup isOpen={showHelp} onClose={togglePopup} />
 
@@ -212,6 +215,7 @@ export default function Home() {
           />
         </div>
       </main>
+      </Layout>
     </>
   );
 }

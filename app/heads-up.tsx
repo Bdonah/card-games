@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 
+
 type Card = {
   rank: string;
   suit: string;
@@ -246,6 +247,7 @@ export default function PokerGame() {
   }
 
   return (
+    
     <div className="min-h-screen bg-green-900 text-white p-8">
   <h1 className="text-4xl font-bold text-center mb-8">♠️ Texas Hold&apos;em (Head&apos;s up)♣️</h1>
 

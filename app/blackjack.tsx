@@ -11,6 +11,8 @@ type Card = {
 
 const suits = ["♠️", "♥️", "♣️", "♦️"];
 const values = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const STARTING_MONEY = 100;
+
 
 function getDeck(): Card[] {
   const deck: Card[] = [];
@@ -46,8 +48,9 @@ function calculateTotal(hand: Card[]): number {
 }
 
 export default function Blackjack() {
-  const [money, setMoney] = useState<number | null>(null);
-  const [inputMoney, setInputMoney] = useState("");
+  const [money, setMoney] = useState(STARTING_MONEY);
+  const [showResetPrompt, setShowResetPrompt] = useState(false);
+  
   const [deck, setDeck] = useState<Card[]>([]);
   const [playerHand, setPlayerHand] = useState<Card[]>([]);
   const [dealerHand, setDealerHand] = useState<Card[]>([]);
@@ -121,10 +124,18 @@ export default function Blackjack() {
 
   function endGame(win: boolean | null) {
     if (win === true) {
-      setMoney(prev => prev! + bet);
+      setMoney(prev => {
+        const newMoney = prev! + bet;
+        if (newMoney <= 0) setShowResetPrompt(true); 
+        return newMoney;
+      });
       setMessage("🎉 You Win!");
     } else if (win === false) {
-      setMoney(prev => prev! - bet);
+      setMoney(prev => {
+        const newMoney = prev! - bet;
+        if (newMoney <= 0) setShowResetPrompt(true); 
+        return newMoney;
+      });
       setMessage("😢 You Lose.");
     } else {
       setMessage("🤝 It's a Tie (Push).");
@@ -147,51 +158,33 @@ export default function Blackjack() {
         🃏 Blackjack Table 🃏
       </h1>
 
-      {/* If money not set */}
-      {money === null ? (
-        <div className="flex flex-col gap-6 items-center">
-          <h2 className="text-3xl font-bold">Enter your starting money (Leave blank for no betting)</h2>
+      {/* 💵 Always show current money */}
+      <h2 className="text-3xl mb-6 font-bold">💰 Money: ${money}</h2>
+
+      {/* Betting Area */}
+      {!playing && (
+        <div className="flex flex-col items-center gap-6 mb-10">
+          <h2 className="text-2xl font-bold text-yellow-300">Enter how much you want to bet:</h2>
           <input
             type="number"
+            placeholder="Enter your bet"
             className="p-3 rounded text-black bg-white text-xl w-64 text-center shadow-md"
-            value={inputMoney}
-            onChange={(e) => setInputMoney(e.target.value)}
-            placeholder="Starting money"
-            />
+            value={bet === 0 ? "" : bet}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (/^\d*$/.test(value)) {
+                setBet(value === "" ? 0 : Number(value));
+              }
+            }}
+          />
           <button
-            onClick={() => setMoney(Number(inputMoney))}
-            className="bg-yellow-400 hover:bg-yellow-500 text-black font-extrabold py-3 px-8 rounded-xl text-2xl shadow-md"
+            onClick={startNewGame}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-extrabold py-3 px-8 rounded-xl text-2xl shadow-md"
           >
-            Confirm
+            🎲 Deal
           </button>
         </div>
-      ) : (
-        <>
-          <h2 className="text-3xl mb-6 font-bold">💰 Money: ${money}</h2>
-
-          {money !== null && !playing && (
-  <div className="flex flex-col items-center gap-6 mb-10">
-    <h2 className="text-2xl font-bold text-yellow-300">Enter how much you want to bet:</h2>
-    <input
-      type="number"
-      placeholder="Enter your bet"
-      className="p-3 rounded text-black bg-white text-xl w-64 text-center shadow-md"
-      value={bet === 0 ? "" : bet}
-      onChange={(e) => {
-        const value = e.target.value;
-        if (/^\d*$/.test(value)) { // Only allow numbers
-          setBet(value === "" ? 0 : Number(value));
-        }
-      }}
-    />
-    <button
-      onClick={startNewGame}
-      className="bg-blue-500 hover:bg-blue-600 text-white font-extrabold py-3 px-8 rounded-xl text-2xl shadow-md"
-    >
-      🎲 Deal
-    </button>
-  </div>
-)}
+      )}
 
           {/* Cards */}
           {(playing || gameOver) && (
@@ -282,8 +275,25 @@ export default function Blackjack() {
               {message}
             </div>
           )}
-        </>
-      )}
+          {showResetPrompt && (
+  <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+    <div className="bg-white text-black p-8 rounded-lg flex flex-col gap-6 items-center">
+      <h2 className="text-2xl font-bold">You&apos;re out of money! 💸</h2>
+      <p className="text-lg">Would you like to restart with $500?</p>
+      <button
+        onClick={() => {
+          setMoney(STARTING_MONEY);
+          setShowResetPrompt(false);
+          setBet(0);
+          setMessage("");
+        }}
+        className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-6 rounded-xl text-xl"
+      >
+        🔄 Restart
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
-}
+} 
