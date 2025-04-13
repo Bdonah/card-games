@@ -7,7 +7,8 @@ import RouletteGame from "./roulette";
 import BlackjackGame from "./blackjack";
 import Slots from "./slots";
 import VideoPoker from "./videopoker";
-import HelpPopup from "@/components/HelpPopup";  
+import HelpPopup from "@/components/HelpPopup"; 
+import Craps from "./craps"; 
 
 const AnotherGame = () => <div>Another game coming soon!</div>;
 
@@ -77,6 +78,19 @@ export default function Home() {
           ⬅️ Return Home
         </button>
         <VideoPoker />
+      </div>
+    );
+  }
+  if (selectedGame === "craps") {
+    return (
+      <div className="min-h-screen bg-green-900 text-white p-8 flex flex-col">
+        <button
+          onClick={handleReturnHome}
+          className="self-start mb-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 rounded"
+        >
+          ⬅️ Return Home
+        </button>
+        <Craps />
       </div>
     );
   }
@@ -173,6 +187,12 @@ export default function Home() {
               className="px-6 py-4 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 shadow-md text-xl"
             >
               🃏 Play Video Poker
+            </button>
+            <button
+              onClick={() => setSelectedGame("craps")}
+              className="px-6 py-4 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 shadow-md text-xl"
+            >
+              🎲 Play Craps
             </button>
             <button
               onClick={() => setSelectedGame("anotherGame")}

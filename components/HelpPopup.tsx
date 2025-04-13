@@ -28,6 +28,7 @@ export default function HelpPopup({ isOpen, onClose }: HelpPopupProps) {
           <p><strong>🃏 Blackjack:</strong> Try to beat the dealer without going over 21.</p>
           <p><strong>🎰 Slots:</strong> Spin the machine. 3 matching symbols = Jackpot!</p>
           <p><strong>🃏 Video Poker:</strong> Hold the best cards and draw for a winning hand.</p>
+          <p><strong>🎲 Craps:</strong> Roll two dice. Roll a 7 or 11 on the first try to win, or a 2, 3, or 12 to lose. Otherwise, your roll becomes your &quot;point&quot; — keep rolling to match your point again before hitting a 7!</p>
         </div>
       </div>
     </div>
