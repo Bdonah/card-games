@@ -153,38 +153,41 @@ export default function PokerGame() {
   const [customBotNames, setCustomBotNames] = useState("");
 
   const startGame = useCallback(() => {
+    // Clear everything first
     setStep(0);
+    setGameMessage("");     // 👈 clear message first immediately
+    setPlayerWinner(false); // 👈 clear winner first immediately
+    setPlayerResult(null);  // 👈 clear player result
+    setCommunityCards([]);  // 👈 clear old community cards
+  
+    // Now create fresh deck
     const newDeck = shuffle(getDeck());
+  
+    // Deal player new hand
     const player = [newDeck.pop()!, newDeck.pop()!];
   
-    // Split user input into names
+    // Split user input into bot names
     const userNames = customBotNames
       .split(",")
       .map(name => name.trim())
       .filter(name => name.length > 0);
   
-    // Combine user names + default bot names if not enough
+    // Combine user bot names and default names
     const fullBotNames = [...userNames, ...defaultBotNames].slice(0, numPlayers);
   
-    const computers = [];
-    for (let i = 0; i < numPlayers; i++) {
-      computers.push({
-        name: fullBotNames[i],  // Always enough names now
-        hand: [newDeck.pop()!, newDeck.pop()!],
-        winner: false,
-      });
-    }
+    // Deal computers their new hands (and clear winner flags)
+    const computers = fullBotNames.map(name => ({
+      name,
+      hand: [newDeck.pop()!, newDeck.pop()!],
+      winner: false,       // 👈 important to reset winner to false
+      result: undefined,   // 👈 important to clear old results
+    }));
   
     setDeck(newDeck);
     setPlayerHand(player);
     setComputerHands(computers);
-    setCommunityCards([]);
-    setGameMessage("");
     setStep(1);
-    setPlayerWinner(false);
-    setPlayerResult(null);
   }, [numPlayers, customBotNames]);
-
   const dealNext = () => {
     const newDeck = [...deck];
     if (step === 1) setCommunityCards([newDeck.pop()!, newDeck.pop()!, newDeck.pop()!]);
@@ -198,43 +201,64 @@ export default function PokerGame() {
     const playerBest = getBestHand([...playerHand, ...communityCards]);
     setPlayerResult(playerBest);
   
-    const computerResults = computerHands.map(bot => ({
-      ...bot,
-      result: getBestHand([...bot.hand, ...communityCards]),
-    }));
+    let finalComputerResults: typeof computerHands = [];
+    let allHands: { name: string; result: HandResult; isPlayer: boolean }[] = [];
   
-    const allHands = [
-      { name: "You", result: playerBest, isPlayer: true },
-      ...computerResults.map(c => ({ name: c.name, result: c.result!, isPlayer: false }))
-    ];
+    // First, update computer results
+    setComputerHands(prevComputerHands => {
+      finalComputerResults = prevComputerHands.map(bot => ({
+        ...bot,
+        result: getBestHand([...bot.hand, ...communityCards]),
+      }));
   
-    let bestHands = [allHands[0]];
-    for (const hand of allHands.slice(1)) {
-      const comp = compareHands(hand.result, bestHands[0].result);
-      if (comp < 0) bestHands = [hand];
-      else if (comp === 0) bestHands.push(hand);
-    }
+      allHands = [
+        { name: "You", result: playerBest, isPlayer: true },
+        ...finalComputerResults.map(c => ({ name: c.name, result: c.result!, isPlayer: false })),
+      ];
   
-    setComputerHands(computerResults.map(c => ({
-      ...c, winner: bestHands.some(w => w.name === c.name)
-    })));
-    setPlayerWinner(bestHands.some(w => w.isPlayer));
+      let bestHands = [allHands[0]];
+      for (const hand of allHands.slice(1)) {
+        const comp = compareHands(hand.result, bestHands[0].result);
+        if (comp < 0) bestHands = [hand];
+        else if (comp === 0) bestHands.push(hand);
+      }
   
-    if (bestHands.length === 1) {
-      setGameMessage(bestHands[0].isPlayer
-        ? `🏆 You win with ${bestHands[0].result.name}!`
-        : `🤖 ${bestHands[0].name} wins with ${bestHands[0].result.name}!`);
-    } else {
-      const names = bestHands.map(w => (w.isPlayer ? "You" : w.name)).join(", ");
-      setGameMessage(`🤝 Tie between ${names} with ${bestHands[0].result.name}!`);
-    }
-  }, [playerHand, communityCards, computerHands]);
+      setPlayerWinner(bestHands.some(w => w.isPlayer));
   
+      // Return updated bots with correct winners
+      return finalComputerResults.map(c => ({
+        ...c,
+        winner: bestHands.some(w => w.name === c.name),
+      }));
+    });
+  
+    // After setting computerHands, separately set the game message
+    setTimeout(() => {
+      if (allHands.length > 0) {
+        const bestResult = allHands.reduce((best, current) => compareHands(current.result, best.result) < 0 ? current : best, allHands[0]);
+        if (bestResult) {
+          if (allHands.filter(h => compareHands(h.result, bestResult.result) === 0).length > 1) {
+            const names = allHands.filter(h => compareHands(h.result, bestResult.result) === 0)
+              .map(h => (h.isPlayer ? "You" : h.name))
+              .join(", ");
+            setGameMessage(`🤝 Tie between ${names} with ${bestResult.result.name}!`);
+          } else {
+            setGameMessage(
+              bestResult.isPlayer
+                ? `🏆 You win with ${bestResult.result.name}!`
+                : `🤖 ${bestResult.name} wins with ${bestResult.result.name}!`
+            );
+          }
+        }
+      }
+    }, 0); // small delay to ensure React updates first
+  }, [playerHand, communityCards]);
+
   useEffect(() => {
     if (step === 4 && communityCards.length === 5) {
-      determineWinner(); 
+      determineWinner();
     }
-  }, [step, communityCards, determineWinner, computerHands]);
+  }, [step, communityCards, determineWinner]);
   
 
   function CardDisplay({ card }: { card: Card }) {
