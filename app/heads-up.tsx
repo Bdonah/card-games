@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Image from "next/image";
 
 
@@ -151,7 +151,7 @@ export default function PokerGame() {
   const [playerWinner, setPlayerWinner] = useState(false);
   const [playerResult, setPlayerResult] = useState<HandResult | null>(null);
   const [customBotNames, setCustomBotNames] = useState("");
-  const [gameInProgress, setGameInProgress] = useState(false);
+
 
   const startGame = useCallback(() => {
     // Clear everything first
@@ -160,7 +160,7 @@ export default function PokerGame() {
     setPlayerWinner(false); // 👈 clear winner first immediately
     setPlayerResult(null);  // 👈 clear player result
     setCommunityCards([]);  // 👈 clear old community cards
-    setGameInProgress(false);
+    
   
     // Now create fresh deck
     const newDeck = shuffle(getDeck());
@@ -190,38 +190,17 @@ export default function PokerGame() {
     setComputerHands(computers);
     setStep(1);
   }, [numPlayers, customBotNames]);
-  const dealNext = () => {
-    const newDeck = [...deck];
-  
-    if (step === 1) {
-      // Deal Flop
-      setCommunityCards([newDeck.pop()!, newDeck.pop()!, newDeck.pop()!]);
-      setStep(2);
-    } else if (step === 2) {
-      // Deal Turn
-      setCommunityCards(prev => [...prev, newDeck.pop()!]);
-      setStep(3);
-    } else if (step === 3) {
-      // Deal River
-      const riverCard = newDeck.pop()!;
-      const newCommunity = [...communityCards, riverCard];
-      setCommunityCards(newCommunity);
-      setStep(4);
-  
-      // 🛠 Directly print winner now
-      determineWinner(computerHands);
-    }
-  
-    setDeck(newDeck);
-  };
 
-  const determineWinner = useCallback((bots: { name: string; hand: Card[] }[]) => {
-    const playerBest = getBestHand([...playerHand, ...communityCards]);
+
+  const determineWinner = useCallback((bots: { name: string; hand: Card[] }[], currentCommunityCards: Card[]) => {
+    if (currentCommunityCards.length < 5) return;
+    
+    const playerBest = getBestHand([...playerHand, ...currentCommunityCards]);
     setPlayerResult(playerBest);
   
     const computerResults = bots.map(bot => ({
       ...bot,
-      result: getBestHand([...bot.hand, ...communityCards]),
+      result: getBestHand([...bot.hand, ...currentCommunityCards]),
       winner: false,
     }));
   
@@ -246,11 +225,6 @@ export default function PokerGame() {
     setPlayerWinner(bestHands.some(w => w.isPlayer));
   
     if (bestHands.length === 1) {
-      console.log(
-        bestHands[0].isPlayer
-          ? `🏆 You win with ${bestHands[0].result.name}!`
-          : `🤖 ${bestHands[0].name} wins with ${bestHands[0].result.name}!`
-      );
       setGameMessage(
         bestHands[0].isPlayer
           ? `🏆 You win with ${bestHands[0].result.name}!`
@@ -258,16 +232,38 @@ export default function PokerGame() {
       );
     } else {
       const names = bestHands.map(w => (w.isPlayer ? "You" : w.name)).join(", ");
-      console.log(`🤝 Tie between ${names} with ${bestHands[0].result.name}!`);
       setGameMessage(`🤝 Tie between ${names} with ${bestHands[0].result.name}!`);
     }
-  }, [playerHand, communityCards]);
-
-  useEffect(() => {
-    if (gameInProgress && communityCards.length === 5) {
-      determineWinner(computerHands);
+  }, [playerHand]);
+  
+  const dealNext = () => {
+    const newDeck = [...deck];
+  
+    if (step === 1) {
+      // Deal Flop
+      const flop = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+      setCommunityCards(flop);
+      setStep(2);
+    } else if (step === 2) {
+      // Deal Turn
+      const turn = newDeck.pop()!;
+      setCommunityCards(prev => [...prev, turn]);
+      setStep(3);
+    } else if (step === 3) {
+      // Deal River
+      const river = newDeck.pop()!;
+      const newCommunity = [...communityCards, river];
+      setCommunityCards(newCommunity);
+      setStep(4);
+      
+      // Determine winner with current community cards
+      determineWinner(computerHands, newCommunity);
     }
-  }, [gameInProgress, communityCards, computerHands, determineWinner]);
+  
+    setDeck(newDeck);
+  };
+
+  
 
   function CardDisplay({ card }: { card: Card }) {
     return (
